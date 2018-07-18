@@ -24,14 +24,19 @@ namespace Vidly.Controllers
         //GET: Movies
         public ActionResult Index()
         {
-            var movies = _context.Movies.Include(m => m.Genre).ToList();
-            
-            var viewModel = new AllMoviesViewModel
-            {
-                Movies = movies
-            };
+            if (User.IsInRole(RoleName.CanManageMovies))
+                return View("List");
+            else
+                return View("ReadOnlyList");
 
-            return View(viewModel);
+            //var movies = _context.Movies.Include(m => m.Genre).ToList();
+            
+            //var viewModel = new AllMoviesViewModel
+            //{
+            //    Movies = movies
+            //};
+
+            //return View(viewModel);
         }
         [Route("movies/details/{id}")]
         public ActionResult MovieDetails(int id)
@@ -65,6 +70,7 @@ namespace Vidly.Controllers
             };
             return View(viewModel);
         }
+        [Authorize(Roles = RoleName.CanManageMovies)]
         public ActionResult Edit(int id)
         {
             //find the movie by id
@@ -81,12 +87,9 @@ namespace Vidly.Controllers
             //add the movie to the viewmodel and include the genres
             return View("MovieForm", viewModel);
         }
-        [Route("movies/released/{year}/{month:regex(\\d{4}):range(1, 12)}")]
-        public ActionResult ByReleaseDate(int year, int month)
-        {
-            return Content(year + "/" + month);
-        }
+        
         [Route("movies/new")]
+        [Authorize(Roles= RoleName.CanManageMovies)]
         public ActionResult New()
         {
             var genres = _context.Genres.ToList();
