@@ -17,40 +17,63 @@ namespace Vidly.Controllers.Api
         {
             _context = new ApplicationDbContext();
         }
-        //GET /api/rentals
+        //GET /api/newrentals
         public IHttpActionResult GetRentals()
         {
-            var rentalsDtos
+            var rentals = _context.Rentals.Include(m => m.Customer).Include(m => m.Movie).ToList();
+            if (rentals == null)
+                return NotFound();
+            //.Select(AutoMapper.Mapper.Map<Rental, NewRentalDto>);
+            return Ok(rentals);
         }
-        //GET /api/rentals/:id
-        public IHttpActionResult GetRental()
+        //GET /api/newrentals/:id
+        public IHttpActionResult GetRental(int id)
         {
-
+            var rental = _context.Rentals.Include(m => m.Customer).Include(m => m.Movie).ToList()
+                .SingleOrDefault(m => m.Id == id);
+            if (rental == null)
+                return NotFound();
+            return Ok(rental);
         }
-        //POST /api/rentals
+        //POST /api/newrentals
         [HttpPost]
         public IHttpActionResult CreateNewRentals(NewRentalDto newRental)
         {
             if (!ModelState.IsValid)
                 return NotFound();
-            foreach(int Id in newRental.MovieIds)
+            //DEfensive programming for edge cases if your api were to be used externally
+            //if there are no movies
+            //if the customer is invalid
+            //if one or more movies are invalid (after querying the db)
+            //a movie is not available
+            var customer = _context.Customers
+                           .ToList()
+                           .Single(p => p.Id == newRental.CustomerId);
+            var movies = _context.Movies
+                        .Where(m => newRental
+                        .MovieIds.Contains(m.Id))
+                        .ToList();
+
+            foreach (Movie movie in movies)
             {
+                if (movie.NumberAvailable == 0)
+                    return BadRequest("Movie iss not available");
+
+                movie.NumberAvailable--;
+
                 var rental = new Rental
                 {
-                    Customer = _context.Customers
-                               .ToList()
-                               .Single(p => p.Id == newRental.CustomerId),
-                    Movie = _context.Movies.ToList().Single(p => p.Id == Id),
+                    Customer = customer,
+                    Movie = movie,
                     DateRented = DateTime.Now,
                     DateReturned = null
                 };
                 _context.Rentals.Add(rental);
                 _context.SaveChanges();
             }
-            
             return Ok();
         }
-        //DELETE /api/rentals/:id
+        //DELETE /api/newrentals/:id
         [HttpDelete]
         public void DeleteRental(int id, NewRentalDto rentalDto)
         {
@@ -63,7 +86,8 @@ namespace Vidly.Controllers.Api
             {
                 throw new HttpResponseException(HttpStatusCode.NotFound);
             }
-            AutoMapper.Mapper.Map(rentalDto, rentalExists);
+            _context.Rentals.Remove(rentalExists);
+            _context.SaveChanges();
         }
     }
 }
